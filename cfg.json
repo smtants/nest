@@ -1,0 +1,16 @@
+{
+    "debug": true,
+    "socket": {
+        "enabled": true,
+        "host": "",
+        "post": 1601,
+        "timeout": 3600
+    },
+    "mariadb":{
+        "host": "192.168.1.38",
+        "port": 3306,
+        "username": "root",
+        "password": "1258",
+        "charset": "utf8"
+    }
+}
