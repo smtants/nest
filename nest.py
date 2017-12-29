@@ -4,19 +4,18 @@
 #   xianwen.zhang
 #   2017-12-10
 
-import os
+import os,time
 import json
 import demjson
 from socketserver import TCPServer, ForkingMixIn, StreamRequestHandler
 from smtants.nest.include import log
-from smtants.nest.include import mariadbclass 
+from smtants.nest.include import mariadbfunc 
 from smtants.nest.target import cpu
 from smtants.nest.target import mem
 
 
-BUF_SIZE    = 1024
-
-mariadbclass = mariadbclass.init('ops_nest')
+BUF_SIZE = 1024
+history  = 1
 
 class NestServer(ForkingMixIn, TCPServer) : pass
 
@@ -34,28 +33,20 @@ class Handler(StreamRequestHandler):
             "mem": mem.mem
         }
 
-        isOK = self.endpoint_exists(dataJson['endpoint'])
+        endpointId = mariadbfunc.get_endpoint_id(dataJson['endpoint'])
+        if endpointId > 0:
+            switch[dataType](endpointId, dataJson)
         
-        if isOK:
-            switch[dataType](dataJson)
+        self.delete_history()
         return
 
-    # check endpoint is exists and add endpoint
-    # @return  bool
-    # 
-    def endpoint_exists(self, endpoint):
-        isOk = False
+    #   delete history before history
+    def delete_history(self):
         try:
-            sql = 'select count(1) from ops_nest_endpoint where endpoint="' + endpoint + '"'
-            if  mariadbclass.query(sql)[0][0] < 1:
-                sql = "insert into ops_nest_endpoint (endpoint,createdate) values('"
-                sql += str(endpoint) + "'," 
-                sql += "unix_timestamp(now()))"
-                mariadbclass.execute(sql)
-            isOk = True
+            sql = 'delete from ops_history where timestamp < ' + str(int(time.time()) - history * 24 * 3600)
+            mariadbfunc.execute(sql)
         except Exception as e:
-            log.lg_write_nest(" ==nest.endpoint_exists== " + str(e))
-        return isOk
+            log.lg_write_nest(' ==nest.nest== delete history failed !')
 
 def nest():
     if not os.path.exists('cfg.json'):
@@ -68,6 +59,11 @@ def nest():
     if not data['socket']['post']:
         log.lg_write_nest(' ==nest.nest== please enter the correct port !')
         exit()
+
+    if not data['history']:
+        log.lg_write_nest(' ==nest.nest== please enter the history !')
+        exit()
+    history = data['history']
 
     try:    
         server = NestServer((data['socket']['host'],data['socket']['post']),Handler)

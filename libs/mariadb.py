@@ -28,7 +28,7 @@ class MariaDB:
                 database=self.database, 
                 charset=self.charset)
         except Exception as e:
-            log.lg_write_mariadb(str(e))
+            log.lg_write_mariadb(" ==open== " + str(e))
             sys.exit()
         return conn
 

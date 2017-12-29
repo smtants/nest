@@ -1,7 +1,6 @@
 {
     "debug": true,
     "socket": {
-        "enabled": true,
         "host": "",
         "post": 1601,
         "timeout": 3600
@@ -11,6 +10,8 @@
         "port": 3306,
         "username": "root",
         "password": "1258",
+        "database": "ops",
         "charset": "utf8"
-    }
+    },
+    "history": 1
 }

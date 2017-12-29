@@ -8,40 +8,27 @@
 import os
 import time
 from smtants.nest.include import log 
-from smtants.nest.include import mariadbclass 
+from smtants.nest.include import mariadbfunc
 
-DATABASE = 'ops_mem'
-mariadbclass = mariadbclass.init(DATABASE)
-
-def mem(obj):
+def mem(endpointId, obj):
     try:
-        tarList = obj['value']
-        for key in tarList: 
-            tar = {}
-            tar['dataType']  = key
-            tar['endpoint']  = obj['endpoint']
-            tar['timestamp'] = obj['timestamp']
-            tar['value']     = tarList[key]
-            tar['step']      = obj['step']   
-            
-            mem_add(tar)
+        tarItems      = obj['value']
+        for key in dict(tarItems).keys():
+            itemId = mariadbfunc.get_item_id(endpointId, key)
+            if itemId > 0:
+                precent = round(float(tarItems[key]) / float(tarItems['mem.memtotal']) , 3)
+                sql = 'insert into ops_history (itemid, value, precent, timestamp, step) values('
+                sql += str(itemId) + ',"'
+                sql += str(tarItems[key]) + '",'
+                sql += str(precent) + ','
+                sql += str(obj['timestamp']) + ','
+                sql += str(obj['step']) + ')'
+                mariadbfunc.execute(sql)
+            else:
+                log.lg_write_nest(" ==mem.mem== " + str(tarItems) + " item id get failed")
 
     except Exception as e:
         log.lg_write_nest(" ==mem.mem== " + str(e))
-        exit()
-
-def mem_add(tar):
-    try:
-        table = DATABASE + '_' + tar['dataType'].split('.')[1]
-        sql = 'insert into ' + table + ' (endpoint, value, timestamp, step) values("'
-        sql += str(tar['endpoint']) + '","'
-        sql += str(tar['value']) + '",'
-        sql += str(tar['timestamp']) + ','
-        sql += str(tar['step']) + ')'
-        mariadbclass.execute(sql)
-    except Exception as e:
-        log.lg_write_nest(" ==cpu_add== " + str(e))
-        exit()
 
 def main():
     if not os.path.exists('/proc/meminfo'):
@@ -93,7 +80,7 @@ def main():
     tar['dataType'] = 'cpu'
     tar['value']    = obj
 
-    mem(tar)
+    mem(1, tar)
 
 if __name__ == "__main__":
     main() 

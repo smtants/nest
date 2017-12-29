@@ -15,12 +15,11 @@ from smtants.nest.libs import mariadb
 # @param    port 
 # @param    user
 # @param    password
-# @param    database
 # @param    charset
 # @return   MariaDB实例对象
-def init(database):
+def init():
     if not os.path.exists('cfg.json'):
-        log.lg_write_nest(' ==mariadbclass.init== cfg.json file is not exists !')
+        log.lg_write_nest(' ==mariadbconn.init== cfg.json file is not exists !')
         exit()
 
     f = open('cfg.json',encoding='utf-8') 
@@ -32,7 +31,7 @@ def init(database):
             data['mariadb']['port'], 
             data['mariadb']['username'], 
             data['mariadb']['password'], 
-            database, 
+            data['mariadb']['database'], 
             data['mariadb']['charset']
         )
     except Exception as e:
@@ -43,4 +42,4 @@ def conn(host, port, user, password, database, charset):
      return mariadb.MariaDB(host, port, user, password, database, charset)
 
 if __name__ == "__main__":
-    init('ops_nest')
+    init()

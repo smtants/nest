@@ -8,40 +8,38 @@
 import os
 import time
 from smtants.nest.include import log 
-from smtants.nest.include import mariadbclass 
+from smtants.nest.include import mariadbfunc
 
-DATABASE = 'ops_cpu'
-mariadbclass = mariadbclass.init(DATABASE)
-
-def cpu(obj):
+def cpu(endpointId, obj):
     try:
-        tarItems = obj['value']
-        for key in tarItems: 
-            tar = {}
-            tar['dataType']  = key
-            tar['endpoint']  = obj['endpoint']
-            tar['timestamp'] = obj['timestamp']
-            tar['value']     = tarItems[key]
-            tar['step']      = obj['step'] 
+        tarItems      = obj['value']
+        user          = float(tarItems['cpu.user'])
+        nice          = float(tarItems['cpu.nice'])
+        system        = float(tarItems['cpu.system'])
+        idle          = float(tarItems['cpu.idle'])
+        iowait        = float(tarItems['cpu.iowait'])
+        irq           = float(tarItems['cpu.irq'])
+        softirq       = float(tarItems['cpu.softirq'])
+        stealstolen   = float(tarItems['cpu.stealstolen'])
+        guest         = float(tarItems['cpu.guest'])
+        total         = user + nice + system + idle + iowait + irq + softirq + stealstolen + guest
 
-            cpu_add(tar)
+        for key in dict(tarItems).keys():
+            itemId = mariadbfunc.get_item_id(endpointId, key)
+            if itemId > 0:
+                precent = round(float(tarItems[key]) / total , 3)
+                sql = 'insert into ops_history (itemid, value, precent, timestamp, step) values('
+                sql += str(itemId) + ',"'
+                sql += str(tarItems[key]) + '",'
+                sql += str(precent) + ','
+                sql += str(obj['timestamp']) + ','
+                sql += str(obj['step']) + ')'
+                mariadbfunc.execute(sql)
+            else:
+                log.lg_write_nest(" ==cpu.cpu== " + str(tarItems) + " item id get failed")
         
     except Exception as e:
         log.lg_write_nest(" ==cpu.cpu== " + str(e))
-        exit()
-
-def cpu_add(tar):
-    try:
-        table = DATABASE + '_' + tar['dataType'].split('.')[1]
-        sql = 'insert into ' + table + ' (endpoint, value, timestamp, step) values("'
-        sql += str(tar['endpoint']) + '","'
-        sql += str(tar['value']) + '",'
-        sql += str(tar['timestamp']) + ','
-        sql += str(tar['step']) + ')'
-        mariadbclass.execute(sql)
-    except Exception as e:
-        log.lg_write_nest(" ==cpu.cpu_add== " + str(e))
-        exit()
 
 def main():
     if not os.path.exists('/proc/stat'):
@@ -73,7 +71,7 @@ def main():
     tar['dataType'] = 'cpu'
     tar['value']    = obj
 
-    cpu(tar)
+    cpu(1,tar)
 
 if __name__ == "__main__":
     main() 
