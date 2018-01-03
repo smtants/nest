@@ -1,76 +1,100 @@
-#!/usr/bin
-# -*- coding:utf-8 -*-
+
 #
-#   xianwen.zhang
-#   2017-12-10
-
-import os,time
-import json
-import demjson
-from socketserver import TCPServer, ForkingMixIn, StreamRequestHandler
+#   tornado 框架测试
+#
+#
+import os,time,json
+import tornado.ioloop
+import tornado.web
+from smtants.nest.include import mariadbfunc
+from smtants.nest.include import statuscode
 from smtants.nest.include import log
-from smtants.nest.include import mariadbfunc 
-from smtants.nest.target import cpu
-from smtants.nest.target import mem
 
+debug = False
 
-BUF_SIZE = 1024
-history  = 1
+class RouterConfig(tornado.web.Application):
+    def route(self, url):
+        def register(handler):
+            self.add_handlers(".*$", [(url, handler)])
+            return handler
+        return register
 
-class NestServer(ForkingMixIn, TCPServer) : pass
+app = RouterConfig()
 
-class Handler(StreamRequestHandler):
-    def handle(self):
-        data = self.request.recv(BUF_SIZE)
-        addr = self.request.getpeername()
-        # current_process_id = os.getpid()
+@app.route(r'/v1/push')
+class V1_PushHandler(tornado.web.RequestHandler):
+    def post(self):
+        endpoint  = ''
+        item      = ''
+        value     = ''
+        timestamp = ''
+        step      = ''
+        retJson   = {}
+        try: 
+            if self.get_argument('endpoint'):
+                endpoint = self.get_argument('endpoint')
 
-        dataJson = demjson.decode(data)
-        dataType = dataJson['dataType']
+            if self.get_argument('item'):
+                item = self.get_argument('item')
 
-        switch = {
-            "cpu": cpu.cpu,
-            "mem": mem.mem
-        }
+            if self.get_argument('value'):
+                value = self.get_argument('value')
 
-        endpointId = mariadbfunc.get_endpoint_id(dataJson['endpoint'])
-        if endpointId > 0:
-            switch[dataType](endpointId, dataJson)
-        
-        self.delete_history()
-        return
+            if self.get_argument('timestamp'):
+                timestamp = self.get_argument('timestamp')
 
-    #   delete history before history
-    def delete_history(self):
-        try:
-            sql = 'delete from ops_history where timestamp < ' + str(int(time.time()) - history * 24 * 3600)
-            mariadbfunc.execute(sql)
+            if self.get_argument('step'):
+                step = self.get_argument('step')
+
+            while True:
+                endpointId = mariadbfunc.get_endpoint_id(endpoint)
+                if endpointId < 1:
+                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint + 'endpointId get failed !')
+                    break
+                    
+                itemId = mariadbfunc.get_item_id(endpointId, item)
+                if itemId < 1:
+                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint+ '.' + item  + 'itemId get failed !')
+                    break
+
+                isOk = mariadbfunc.add_history(itemId, value, timestamp, step)
+                
+                if not isOk:
+                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint + '.' + item + 'add history failed !')
+                    break
+                
+                retJson['res']  = statuscode.SUCCESS
+                break
+
         except Exception as e:
-            log.lg_write_nest(' ==nest.nest== delete history failed !')
+            log.lg_write_nest(' ==nest.v1.push== ' + str(e))
+            retJson['res'] = statuscode.API_ABNORMA
 
-def nest():
-    if not os.path.exists('cfg.json'):
-        log.lg_write_nest(' ==nest.nest== cfg.json file is not exists !')
-        exit()
+        self.write(retJson)
 
-    f = open('cfg.json',encoding='utf-8') 
-    data = json.load(f)
+def main():
+    try:
+        if not os.path.exists('cfg.json'):
+            log.lg_write_nest(' ==nest.nest== cfg.json file is not exists !')
+            exit()
 
-    if not data['socket']['post']:
-        log.lg_write_nest(' ==nest.nest== please enter the correct port !')
-        exit()
+        f = open('cfg.json',encoding='utf-8') 
+        data = json.load(f)
 
-    if not data['history']:
-        log.lg_write_nest(' ==nest.nest== please enter the history !')
-        exit()
-    history = data['history']
+        if not data['socket']['post']:
+            log.lg_write_nest(' ==nest.nest== please enter the correct port !')
+            exit()
 
-    try:    
-        server = NestServer((data['socket']['host'],data['socket']['post']),Handler)
-        server.serve_forever()
+        if data['debug']:
+            debug = True
+        
+        port = data['socket']['post']
+
+        app.listen(port)
+        tornado.ioloop.IOLoop.current().start()
     except Exception as e:
         log.lg_write_nest(' ==nest.nest== ' + str(e))
         exit()
 
 if __name__ == "__main__":
-    nest()
+    main()

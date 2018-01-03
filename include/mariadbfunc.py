@@ -73,13 +73,31 @@ def item_exists(endpointId, itemName):
 # @return  id
 # 
 def get_item_id(endpointId, itemName):
-        try:
-            isOk = item_exists(endpointId, itemName)
-            itemId = 0
-            if isOk:
-                sql = 'select id from ops_items where endpointid=' + str(endpointId) + ' and name="' + str(itemName) + '"'
-                if  mariadbclient.query(sql)[0][0] > 0:
-                    itemId = mariadbclient.query(sql)[0][0]
-        except Exception as e:
-            log.lg_write_nest(" ==mariadbfunc.get_item_id== " + str(e))
-        return itemId
+    try:
+        isOk = item_exists(endpointId, itemName)
+        itemId = 0
+        if isOk:
+            sql = 'select id from ops_items where endpointid=' + str(endpointId) + ' and name="' + str(itemName) + '"'
+            if  mariadbclient.query(sql)[0][0] > 0:
+                itemId = mariadbclient.query(sql)[0][0]
+    except Exception as e:
+        log.lg_write_nest(" ==mariadbfunc.get_item_id== " + str(e))
+    return itemId
+
+
+# add history
+# @return  bool
+# 
+def add_history(itemId, value, timestamp, step):
+    isOk = False
+    try:
+        sql = 'insert into ops_history (itemid, value, timestamp, step) values('
+        sql += str(itemId) + ',"'
+        sql += str(value) + '",'
+        sql += str(timestamp) + ','
+        sql += str(step) + ')'
+        mariadbclient.execute(sql)
+        isOk = True
+    except Exception as e:
+        log.lg_write_nest(" ==mariadbfunc.add_history== " + str(e))
+    return isOk
