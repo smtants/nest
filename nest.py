@@ -79,12 +79,11 @@ class V1_PushHandler(tornado.web.RequestHandler):
                     if itemId < 1:
                         log.lg_write_nest(' ==nest.v1.push== ' + endpoint+ '.' + str(key)  + 'itemId get failed !')
                         break
-
-                isOk = mariadbfunc.add_history(itemId, value, timestamp, step)
-                
-                if not isOk:
-                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint + '.' + str(key) + 'add history failed !')
-                    break
+                    isOk = mariadbfunc.add_history(itemId, dict(dataJson).get(key), timestamp, step)
+                    
+                    if not isOk:
+                        log.lg_write_nest(' ==nest.v1.push== ' + endpoint + '.' + str(key) + 'add history failed !')
+                        break
                 
                 retJson['res']  = statuscode.SUCCESS
                 if isDebug:
