@@ -19,8 +19,8 @@ def lg_create_path(path):
 # @para   msg
 #
 def lg_write_mariadb(msg):
-    lg_create_path('./log')
-    f = open('./log/mariadb.error.log','a')
+    lg_create_path('./logs')
+    f = open('./logs/mariadb.error.log','a')
     content = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + msg + "\n"
     f.write(content)
     f.close()
@@ -28,9 +28,9 @@ def lg_write_mariadb(msg):
 # nest  log
 # @para msg
 #
-def lg_write_nest(msg):
-    lg_create_path('./log')
-    f = open('./log/app.log','a')
+def lg_write(msg):
+    lg_create_path('./logs')
+    f = open('./logs/app.log','a')
     content = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + msg + "\n"
     f.write(content)
     f.close()

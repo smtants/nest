@@ -5,7 +5,7 @@
 #   xianwen.zhang
 #   2017-11-07
 
-import os
+import os, io
 import json
 from smtants.nest.include import log        
 from smtants.nest.libs import mariadb  
@@ -22,7 +22,7 @@ def init():
         log.lg_write_nest(' ==mariadbconn.init== cfg.json file is not exists !')
         exit()
 
-    f = open('cfg.json',encoding='utf-8') 
+    f = io.open('cfg.json', 'r', encoding='utf-8') 
     data = json.load(f)
 
     try:

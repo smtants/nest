@@ -5,20 +5,22 @@
 #   xianwen.zhang
 #   2017-12-01
 
-import os,time,json,demjson
+import os,io,time,json,demjson
 import tornado.ioloop
 import tornado.web
+import memcache
+from multiprocessing import Process
 from smtants.nest.include import mariadbfunc
 from smtants.nest.include import statuscode
 from smtants.nest.include import log
 
-endpointsDict = {}
-itemsDict     = {}
+mhost = 'localhost'
+mport = 11211
 
 isDebug = False
 
-def debug(msg):
-    print(msg)
+# def debug(msg):
+#     print(msg)
 
 class RouterConfig(tornado.web.Application):
     def route(self, url):
@@ -57,41 +59,45 @@ class V1_PushHandler(tornado.web.RequestHandler):
         
             #   string to json
             dataJson = demjson.decode(value)
+
+            #   start cache
+            mc_scoket = mhost + ':' + str(mport)
+            mc = memcache.Client([mc_scoket], debug=0)
             while True:
-                if endpointsDict.get(endpoint):
-                    endpointId = endpointsDict.get(endpoint)
+                if mc.get(endpoint):
+                    endpointId = mc.get(endpoint)
                 else:
                     endpointId = mariadbfunc.get_endpoint_id(endpoint)
-                    endpointsDict[endpoint] = endpointId
+                    mc.set(endpoint,endpointId)
                 if endpointId < 1:
-                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint + 'endpointId get failed !')
+                    log.lg_write(' ==nest.v1.push== ' + endpoint + 'endpointId get failed !')
                     break
 
                 if len(dict(dataJson)) < 1:
                     retJson['res'] = statuscode.REQ_FORMAT_ERROR
                     break
                 for key in dict(dataJson).keys():
-                    if itemsDict.get(str(endpointId) + '.' + str(key)):    
-                        itemId = itemsDict.get(str(endpointId) + '.' + str(key))
+                    if mc.get(str(endpointId) + '.' + str(key)):    
+                        itemId = mc.get(str(endpointId) + '.' + str(key))
                     else:
                         itemId = mariadbfunc.get_item_id(endpointId, str(key))
-                        itemsDict[str(endpointId) + '.' + str(key)] = itemId
+                        mc.set(str(endpointId) + '.' + str(key), itemId)
                     if itemId < 1:
-                        log.lg_write_nest(' ==nest.v1.push== ' + endpoint+ '.' + str(key)  + 'itemId get failed !')
+                        log.lg_write(' ==nest.v1.push== ' + endpoint+ '.' + str(key)  + 'itemId get failed !')
                         break
                     isOk = mariadbfunc.add_history(itemId, dict(dataJson).get(key), timestamp, step)
                     
                     if not isOk:
-                        log.lg_write_nest(' ==nest.v1.push== ' + endpoint + '.' + str(key) + 'add history failed !')
+                        log.lg_write(' ==nest.v1.push== ' + endpoint + '.' + str(key) + 'add history failed !')
                         break
                 
                 retJson['res']  = statuscode.SUCCESS
-                if isDebug:
-                    debug(endpoint + " push is ok!")
+                # if isDebug:
+                #     debug(endpoint + " push is ok!")
                 break
 
         except Exception as e:
-            log.lg_write_nest(' ==nest.v1.push== ' + str(e))
+            log.lg_write(' ==nest.v1.push== ' + str(e))
             retJson['res'] = statuscode.API_ABNORMA
 
         self.write(retJson)
@@ -126,62 +132,98 @@ class V1_PluginHandler(tornado.web.RequestHandler):
                 retJson['res'] = statuscode.REQ_PARAM_ERROR
                 return retJson
 
+            #   start cache
+            mc_scoket = mhost + ':' + str(mport)
+            mc = memcache.Client([mc_scoket], debug=0)
+
             while True:
-                if endpointsDict.get(endpoint):
-                    endpointId = endpointsDict.get(endpoint)
+                if mc.get(endpoint):
+                    endpointId = mc.get(endpoint)
                 else:
                     endpointId = mariadbfunc.get_endpoint_id(endpoint)
-                    endpointsDict[endpoint] = endpointId
+                    mc.set(endpoint, endpointId)
                 if endpointId < 1:
                     log.lg_write_nest(' ==nest.v1.push== ' + endpoint + 'endpointId get failed !')
                     break
 
-                if itemsDict.get(str(endpointId) + '.' + item):    
-                    itemId = itemsDict.get(str(endpointId) + '.' + item)
+                if mc.get(str(endpointId) + '.' + item):    
+                    itemId = mc.get(str(endpointId) + '.' + item)
                 else:
                     itemId = mariadbfunc.get_item_id(endpointId, item)
-                    itemsDict[(str(endpointId) + '.' + item)] = itemId
+                    mc.set(str(endpointId) + '.' + item, itemId)
                 if itemId < 1:
-                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint+ '.' + item  + 'itemId get failed !')
+                    log.lg_write(' ==nest.v1.push== ' + endpoint+ '.' + item  + 'itemId get failed !')
                     break
 
                 isOk = mariadbfunc.add_history(itemId, value, timestamp, step)
                 
                 if not isOk:
-                    log.lg_write_nest(' ==nest.v1.push== ' + endpoint + '.' + item + 'add history failed !')
+                    log.lg_write(' ==nest.v1.push== ' + endpoint + '.' + item + 'add history failed !')
                     break
                 
                 retJson['res']  = statuscode.SUCCESS
                 break
 
         except Exception as e:
-            log.lg_write_nest(' ==nest.v1.push== ' + str(e))
+            log.lg_write(' ==nest.v1.push== ' + str(e))
             retJson['res'] = statuscode.API_ABNORMA
 
         self.write(retJson)
 
+#   listen port
+#
+def nest(port):
+    try:
+        app.listen(port)
+        tornado.ioloop.IOLoop.current().start()
+    except Exception as e:
+        log.lg_write(' ==nest.nest== ' + str(e))
+        exit()
+
+def del_history(interval):
+    try:
+        while True:
+            timestamp = int(time.time()) - interval * 3600
+            mariadbfunc.del_history(timestamp)
+            time.sleep(60)
+            
+    except Exception as e:
+        log.lg_write(' ==nest.del_history== ' + str(e))
+        exit()
+
 def main():
     try:
         if not os.path.exists('cfg.json'):
-            log.lg_write_nest(' ==nest.nest== cfg.json file is not exists !')
+            log.lg_write(' ==nest.main== cfg.json file is not exists !')
             exit()
 
-        f = open('cfg.json',encoding='utf-8') 
+        f = io.open('cfg.json', 'r', encoding='utf-8') 
         data = json.load(f)
 
         if not data['socket']['post']:
-            log.lg_write_nest(' ==nest.nest== please enter the correct port !')
+            log.lg_write(' ==nest.main== please enter the correct port !')
             exit()
+
+        global mhost 
+        global mport
+        global isDebug
 
         if data['debug']:
             isDebug = True
         
-        port = data['socket']['post']
+        nport = data['socket']['post']
+        mhost = str(data['memcache']['host'])
+        mport = int(data['memcache']['post'])
 
-        app.listen(port)
-        tornado.ioloop.IOLoop.current().start()
+        interval     = data['interval']
+
+        pn = Process(target = nest, args = (nport,))
+        pn.start()
+
+        pd = Process(target = del_history, args = (interval,))
+        pd.start()
     except Exception as e:
-        log.lg_write_nest(' ==nest.nest== ' + str(e))
+        log.lg_write(' ==nest.main== ' + str(e))
         exit()
 
 if __name__ == "__main__":

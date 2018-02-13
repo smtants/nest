@@ -3,13 +3,13 @@
 WORKSPACE=$(cd $(dirname $0); pwd)
 cd $WORKSPACE
 
-mkdir -p log
+mkdir -p logs
 
-module=nest
-app=smtants-$module
+module=nest.py
+app=$module
 conf=cfg.json
-pidfile=log/app.pid
-logfile=log/app.log
+pidfile=logs/app.pid
+logfile=logs/app.log
 
 function check_pid(){
     if [ -f $pidfile ];then
@@ -35,7 +35,7 @@ function start(){
         cp cfg.example.json $conf
     fi
 
-    nohup ./$app &> $logfile &
+    nohup python $app &> $logfile &
     sleep 1
     running=`ps -p $!|grep -v "PID TTY" |wc -l`
     if [ $running -gt 0 ];then
@@ -52,6 +52,12 @@ function stop(){
     kill $pid
     rm -f $pidfile
     echo "$app stoped..."
+}
+
+function upgrade(){
+    stop
+    git pull
+    start
 }
 
 function restart(){
@@ -75,7 +81,7 @@ function tailf(){
 }
 
 function help(){
-    echo "start|stop|restart|status|tail|help"
+    echo "start|stop|upgrade|restart|status|tail|help"
 }
 
 if [ "$1" == "" ];then
@@ -84,6 +90,8 @@ elif [ "$1" == "stop" ];then
     stop
 elif [ "$1" == "start" ];then
     start
+elif [ "$1" == "upgrade" ];then
+    upgrade
 elif [ "$1" == "restart" ];then
     restart
 elif [ "$1" == "status" ];then

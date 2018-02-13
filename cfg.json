@@ -5,6 +5,14 @@
         "post": 1601,
         "timeout": 3600
     },
+    "hbt": {
+        "host": "",
+        "post": 1988
+    },
+    "memcache": {
+        "host": "10.16.4.44",
+        "post": 11211
+    },
     "mariadb":{
         "host": "192.168.1.38",
         "port": 3306,
@@ -13,5 +21,5 @@
         "database": "ops",
         "charset": "utf8"
     },
-    "history": 1
+    "interval": 24
 }

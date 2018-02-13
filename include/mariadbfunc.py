@@ -17,7 +17,7 @@ def execute(sql):
     try:
         isOk = mariadbclient.execute(sql)
     except Exception as e:
-        log.lg_write_nest(" ==mariadbfunc.execute== " + str(e))
+        log.lg_write(" ==mariadbfunc.execute== " + str(e))
     return isOk
 
 # check endpoint is exists and add endpoint
@@ -34,7 +34,7 @@ def endpoint_exists(endpoint):
             mariadbclient.execute(sql)
         isOk = True
     except Exception as e:
-        log.lg_write_nest(" ==mariadbfunc.endpoint_exists== " + str(e))
+        log.lg_write(" ==mariadbfunc.endpoint_exists== " + str(e))
     return isOk
 
 # get endpoint 
@@ -49,7 +49,7 @@ def get_endpoint_id(endpoint):
                 if  mariadbclient.query(sql)[0][0] > 0:
                     endpointId = mariadbclient.query(sql)[0][0]
         except Exception as e:
-            log.lg_write_nest(" ==mariadbfunc.get_endpoint_id== " + str(e))
+            log.lg_write(" ==mariadbfunc.get_endpoint_id== " + str(e))
         return endpointId
 
 # check items is exists and add item
@@ -66,7 +66,7 @@ def item_exists(endpointId, itemName):
             mariadbclient.execute(sql)
         isOk = True
     except Exception as e:
-        log.lg_write_nest(" ==mariadbfunc.item_exists== " + str(e))
+        log.lg_write(" ==mariadbfunc.item_exists== " + str(e))
     return isOk
 
 # get item id
@@ -81,7 +81,7 @@ def get_item_id(endpointId, itemName):
             if  mariadbclient.query(sql)[0][0] > 0:
                 itemId = mariadbclient.query(sql)[0][0]
     except Exception as e:
-        log.lg_write_nest(" ==mariadbfunc.get_item_id== " + str(e))
+        log.lg_write(" ==mariadbfunc.get_item_id== " + str(e))
     return itemId
 
 
@@ -99,5 +99,14 @@ def add_history(itemId, value, timestamp, step):
         mariadbclient.execute(sql)
         isOk = True
     except Exception as e:
-        log.lg_write_nest(" ==mariadbfunc.add_history== " + str(e))
+        log.lg_write(" ==mariadbfunc.add_history== " + str(e))
     return isOk
+
+# dell history
+# 
+def del_history(timestamp):
+    try:
+        sql = 'delete * from ops_history where timestamp <' + str(timestamp)
+        mariadbclient.execute(sql)
+    except Exception as e:
+        log.lg_write(" ==mariadbfunc.del_history== " + str(e))
