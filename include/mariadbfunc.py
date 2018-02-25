@@ -106,7 +106,7 @@ def add_history(itemId, value, timestamp, step):
 # 
 def del_history(timestamp):
     try:
-        sql = 'delete * from ops_history where timestamp <' + str(timestamp)
+        sql = 'delete from ops_history where timestamp<' + str(timestamp)
         mariadbclient.execute(sql)
     except Exception as e:
         log.lg_write(" ==mariadbfunc.del_history== " + str(e))
